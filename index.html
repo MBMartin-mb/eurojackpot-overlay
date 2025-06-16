@@ -48,6 +48,12 @@
   <form id="uploadForm">
     <input type="file" id="imageInput" accept="image/*" required>
     <input type="number" id="jackpotAmount" placeholder="Zadejte částku v Kč" min="0" step="1000" required>
+    <select id="positionSelect">
+      <option value="top-left">Levý horní roh</option>
+      <option value="top-right">Pravý horní roh</option>
+      <option value="bottom-left">Levý dolní roh</option>
+      <option value="bottom-right">Pravý dolní roh</option>
+    </select>
     <button type="submit">Vygenerovat</button>
   </form>
   <div id="result">
@@ -60,6 +66,7 @@
     const imageInput = document.getElementById('imageInput');
     const jackpotInput = document.getElementById('jackpotAmount');
     const form = document.getElementById('uploadForm');
+    const positionSelect = document.getElementById('positionSelect');
 
     // Funkce pro formátování čísla s mezerami jako oddělovači tisíců
     function formatNumberWithSpaces(number) {
@@ -77,6 +84,24 @@
       return fontWidth !== arialWidth;
     }
 
+    // Funkce pro výpočet pozice podle výběru
+    function getPositionCoordinates(img, fontSize) {
+      const padding = 20;
+      const position = positionSelect.value;
+      switch (position) {
+        case 'top-left':
+          return { x: padding, y: img.height * 0.1 };
+        case 'top-right':
+          return { x: img.width - ctx.measureText('HRAJTE O').width - padding, y: img.height * 0.1 };
+        case 'bottom-left':
+          return { x: padding, y: img.height - fontSize * 2 - padding };
+        case 'bottom-right':
+          return { x: img.width - ctx.measureText('HRAJTE O').width - padding, y: img.height - fontSize * 2 - padding };
+        default:
+          return { x: padding, y: img.height * 0.1 };
+      }
+    }
+
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const file = imageInput.files[0];
@@ -88,7 +113,6 @@
           canvas.height = img.height;
           ctx.drawImage(img, 0, 0);
 
-          const textY = img.height * 0.1;
           const fontSize = Math.min(60, img.width / 20);
 
           // Počkejte, dokud se font nenahraje
@@ -100,8 +124,10 @@
               ctx.shadowBlur = 4;
               ctx.shadowOffsetX = 2;
               ctx.shadowOffsetY = 2;
-              ctx.fillText('HRAJTE O', 20, textY);
-              ctx.fillText(`${formatNumberWithSpaces(jackpot)} Kč`, 20, textY + fontSize + 10);
+
+              const { x, y } = getPositionCoordinates(img, fontSize);
+              ctx.fillText('HRAJTE O', x, y);
+              ctx.fillText(`${formatNumberWithSpaces(jackpot)} Kč`, x, y + fontSize + 10);
             } else {
               setTimeout(drawText, 100); // Zkus znovu za 100ms
             }
