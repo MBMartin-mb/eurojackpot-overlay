@@ -53,6 +53,7 @@
       <option value="top-right">Pravý horní roh</option>
       <option value="bottom-left">Levý dolní roh</option>
       <option value="bottom-right">Pravý dolní roh</option>
+      <option value="auto">Automatické umístění</option>
     </select>
     <button type="submit">Vygenerovat</button>
   </form>
@@ -84,10 +85,43 @@
       return fontWidth !== arialWidth;
     }
 
+    // Simulace AI analýzy obrázku a určení nejlepší pozice
+    function analyzeImageForBestPosition(imgData, width, height) {
+      let bestX = 20;
+      let bestY = height * 0.1;
+      let bestFontSize = Math.min(60, width / 20);
+
+      // Jednoduchá simulace: hledání prázdné oblasti (např. podle průměrné světelnosti)
+      const threshold = 200; // Práh pro "prázdnou" oblast (světlé pixely)
+      let maxEmptyArea = 0;
+      const sampleSize = 10; // Vzorkování pro rychlost
+
+      for (let y = 0; y < height; y += sampleSize) {
+        for (let x = 0; x < width; x += sampleSize) {
+          const i = (y * width + x) * 4;
+          const brightness = (imgData[i] + imgData[i + 1] + imgData[i + 2]) / 3;
+          if (brightness > threshold) {
+            const area = width * height * 0.05; // Minimální plocha pro text
+            if (y + bestFontSize * 2 < height && x + ctx.measureText('HRAJTE O').width < width) {
+              bestX = x;
+              bestY = y;
+              maxEmptyArea = area;
+            }
+          }
+        }
+      }
+
+      return { x: bestX, y: bestY, fontSize: bestFontSize };
+    }
+
     // Funkce pro výpočet pozice podle výběru
     function getPositionCoordinates(img, fontSize) {
       const padding = 20;
       const position = positionSelect.value;
+      if (position === 'auto') {
+        const imgData = ctx.getImageData(0, 0, img.width, img.height).data;
+        return analyzeImageForBestPosition(imgData, img.width, img.height);
+      }
       switch (position) {
         case 'top-left':
           return { x: padding, y: img.height * 0.1 };
