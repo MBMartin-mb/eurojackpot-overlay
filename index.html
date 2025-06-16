@@ -15,22 +15,18 @@
       margin: 0;
       min-height: 100vh;
     }
-    #uploadForm {
-      margin-bottom: 20px;
-      display: flex;
-      gap: 10px;
-      padding: 20px;
-      border-radius: 5px;
-      background-image: url('EJ.jpg');
-      background-size: 300px auto; /* Omezená velikost obrázku */
-      background-position: center;
-      background-repeat: no-repeat;
-      background-color: rgba(255, 255, 255, 0.9); /* Lehký podklad pro čitelnost */
-    }
     #canvas {
       max-width: 100%;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
       background-color: rgba(255, 255, 255, 0.8);
+    }
+    #uploadForm {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      padding: 10px;
+      border-radius: 5px;
+      background-color: rgba(255, 255, 255, 0.9);
     }
     #result {
       margin-top: 20px;
@@ -77,7 +73,6 @@
           ctx.drawImage(img, 0, 0);
 
           const textY = img.height * 0.1;
-          // Dynamická velikost fontu podle šířky canvasu
           const fontSize = Math.min(60, img.width / 20);
           ctx.font = `${fontSize}px AachenStdBold`;
           ctx.fillStyle = 'yellow';
