@@ -5,10 +5,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Eurojackpot Overlay</title>
   <style>
-    body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; background-color: #f0f0f0; }
-    #canvas { max-width: 100%; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    #uploadForm { margin-bottom: 20px; display: flex; gap: 10px; }
-    #result { margin-top: 20px; position: relative; }
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      background-image: url('EJ.jpg');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      min-height: 100vh;
+      margin: 0;
+    }
+    #canvas {
+      max-width: 100%;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      background-color: rgba(255, 255, 255, 0.8); /* Lehký bílý podklad pro čitelnost */
+    }
+    #uploadForm {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      background-color: rgba(255, 255, 255, 0.9);
+      padding: 10px;
+      border-radius: 5px;
+    }
+    #result {
+      margin-top: 20px;
+      position: relative;
+    }
     @font-face {
       font-family: 'AachenStdBold';
       src: url('AachenStd-Bold.ttf') format('truetype');
@@ -46,13 +72,11 @@
       if (file && jackpot) {
         const img = new Image();
         img.onload = () => {
-          // Nastavení velikosti canvasu podle obrázku
           canvas.width = img.width;
           canvas.height = img.height;
           ctx.drawImage(img, 0, 0);
 
-          // Vylepšené umístění: dynamické podle výšky obrázku
-          const textY = img.height * 0.1; // 10% od vrchu
+          const textY = img.height * 0.1;
           ctx.font = '60px AachenStdBold';
           ctx.fillStyle = 'yellow';
           ctx.shadowColor = 'black';
