@@ -1,178 +1,50 @@
-<!DOCTYPE html>
-<html lang="cs">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Eurojackpot Overlay</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px;
-      background-color: #f0f0f0;
-      margin: 0;
-      min-height: 100vh;
-    }
-    #canvas {
-      max-width: 100%;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      background-color: rgba(255, 255, 255, 0.8);
-    }
-    #uploadForm {
-      margin-bottom: 20px;
-      display: flex;
-      gap: 10px;
-      padding: 10px;
-      border-radius: 5px;
-      background-color: rgba(255, 255, 255, 0.9);
-    }
-    #result {
-      margin-top: 20px;
-      position: relative;
-    }
-    @font-face {
-      font-family: 'AachenStdBold';
-      src: url('AachenStd-Bold.ttf') format('truetype');
-    }
-    .overlay-text {
-      font-family: 'AachenStdBold', sans-serif;
-      color: yellow;
-      text-shadow: 2px 2px 4px black;
-      pointer-events: none;
-    }
-  </style>
-</head>
-<body>
-  <form id="uploadForm">
-    <input type="file" id="imageInput" accept="image/*" required>
-    <input type="number" id="jackpotAmount" placeholder="Zadejte částku v Kč" min="0" step="1000" required>
-    <select id="positionSelect">
-      <option value="top-left">Levý horní roh</option>
-      <option value="top-right">Pravý horní roh</option>
-      <option value="bottom-left">Levý dolní roh</option>
-      <option value="bottom-right">Pravý dolní roh</option>
-      <option value="auto">Automatické umístění</option>
-    </select>
-    <button type="submit">Vygenerovat</button>
-  </form>
-  <div id="result">
-    <canvas id="canvas"></canvas>
-  </div>
+function analyzeImageForBestPosition(imgData, width, height) {
+  const cols = 6;
+  const rows = 6;
+  const blockWidth = Math.floor(width / cols);
+  const blockHeight = Math.floor(height / rows);
 
-  <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const imageInput = document.getElementById('imageInput');
-    const jackpotInput = document.getElementById('jackpotAmount');
-    const form = document.getElementById('uploadForm');
-    const positionSelect = document.getElementById('positionSelect');
+  let bestBlock = { x: 0, y: 0 };
+  let minContrast = Infinity;
 
-    // Funkce pro formátování čísla s mezerami jako oddělovači tisíců
-    function formatNumberWithSpaces(number) {
-      return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-    }
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      let totalContrast = 0;
+      let count = 0;
 
-    // Kontrola, zda je font načtený
-    function isFontLoaded(fontFamily) {
-      const canvasTest = document.createElement('canvas');
-      const ctxTest = canvasTest.getContext('2d');
-      ctxTest.font = '40px Arial';
-      const arialWidth = ctxTest.measureText('HRAJTE O').width;
-      ctxTest.font = '40px ' + fontFamily;
-      const fontWidth = ctxTest.measureText('HRAJTE O').width;
-      return fontWidth !== arialWidth;
-    }
+      for (let y = 0; y < blockHeight - 1; y++) {
+        for (let x = 0; x < blockWidth - 1; x++) {
+          const px = (row * blockHeight + y) * width + (col * blockWidth + x);
+          const i = px * 4;
 
-    // Simulace AI analýzy obrázku a určení nejlepší pozice
-    function analyzeImageForBestPosition(imgData, width, height) {
-      let bestX = 20;
-      let bestY = height * 0.1;
-      let bestFontSize = Math.min(60, width / 20);
+          const r = imgData[i];
+          const g = imgData[i + 1];
+          const b = imgData[i + 2];
+          const brightness = (r + g + b) / 3;
 
-      // Jednoduchá simulace: hledání prázdné oblasti (např. podle průměrné světelnosti)
-      const threshold = 200; // Práh pro "prázdnou" oblast (světlé pixely)
-      let maxEmptyArea = 0;
-      const sampleSize = 10; // Vzorkování pro rychlost
+          const iRight = ((row * blockHeight + y) * width + (col * blockWidth + x + 1)) * 4;
+          const r2 = imgData[iRight];
+          const g2 = imgData[iRight + 1];
+          const b2 = imgData[iRight + 2];
+          const brightness2 = (r2 + g2 + b2) / 3;
 
-      for (let y = 0; y < height; y += sampleSize) {
-        for (let x = 0; x < width; x += sampleSize) {
-          const i = (y * width + x) * 4;
-          const brightness = (imgData[i] + imgData[i + 1] + imgData[i + 2]) / 3;
-          if (brightness > threshold) {
-            const area = width * height * 0.05; // Minimální plocha pro text
-            if (y + bestFontSize * 2 < height && x + ctx.measureText('HRAJTE O').width < width) {
-              bestX = x;
-              bestY = y;
-              maxEmptyArea = area;
-            }
-          }
+          const diff = Math.abs(brightness - brightness2);
+          totalContrast += diff;
+          count++;
         }
       }
 
-      return { x: bestX, y: bestY, fontSize: bestFontSize };
-    }
+      const avgContrast = totalContrast / count;
 
-    // Funkce pro výpočet pozice podle výběru
-    function getPositionCoordinates(img, fontSize) {
-      const padding = 20;
-      const position = positionSelect.value;
-      if (position === 'auto') {
-        const imgData = ctx.getImageData(0, 0, img.width, img.height).data;
-        return analyzeImageForBestPosition(imgData, img.width, img.height);
-      }
-      switch (position) {
-        case 'top-left':
-          return { x: padding, y: img.height * 0.1 };
-        case 'top-right':
-          return { x: img.width - ctx.measureText('HRAJTE O').width - padding, y: img.height * 0.1 };
-        case 'bottom-left':
-          return { x: padding, y: img.height - fontSize * 2 - padding };
-        case 'bottom-right':
-          return { x: img.width - ctx.measureText('HRAJTE O').width - padding, y: img.height - fontSize * 2 - padding };
-        default:
-          return { x: padding, y: img.height * 0.1 };
+      if (avgContrast < minContrast) {
+        minContrast = avgContrast;
+        bestBlock = { x: col, y: row };
       }
     }
+  }
 
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const file = imageInput.files[0];
-      const jackpot = jackpotInput.value;
-      if (file && jackpot) {
-        const img = new Image();
-        img.onload = () => {
-          canvas.width = img.width;
-          canvas.height = img.height;
-          ctx.drawImage(img, 0, 0);
-
-          const fontSize = Math.min(60, img.width / 20);
-
-          // Počkejte, dokud se font nenahraje
-          function drawText() {
-            if (isFontLoaded('AachenStdBold')) {
-              ctx.font = `${fontSize}px AachenStdBold`;
-              ctx.fillStyle = 'yellow';
-              ctx.shadowColor = 'black';
-              ctx.shadowBlur = 4;
-              ctx.shadowOffsetX = 2;
-              ctx.shadowOffsetY = 2;
-
-              const { x, y } = getPositionCoordinates(img, fontSize);
-              ctx.fillText('HRAJTE O', x, y);
-              ctx.fillText(`${formatNumberWithSpaces(jackpot)} Kč`, x, y + fontSize + 10);
-            } else {
-              setTimeout(drawText, 100); // Zkus znovu za 100ms
-            }
-          }
-          drawText();
-        };
-        img.src = URL.createObjectURL(file);
-      } else {
-        alert('Prosím, nahrajte obrázek a zadejte částku!');
-      }
-    });
-  </script>
-</body>
-</html>
+  const bestX = bestBlock.x * blockWidth + 20;
+  const bestY = bestBlock.y * blockHeight + 40;
+  const bestFontSize = Math.min(60, width / 20);
+  return { x: bestX, y: bestY, fontSize: bestFontSize };
+}
