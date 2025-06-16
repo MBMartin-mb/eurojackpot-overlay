@@ -12,24 +12,21 @@ function analyzeImageForBestPosition(imgData, width, height) {
       let totalContrast = 0;
       let count = 0;
 
-      for (let y = 0; y < blockHeight - 1; y++) {
-        for (let x = 0; x < blockWidth - 1; x++) {
-          const px = (row * blockHeight + y) * width + (col * blockWidth + x);
-          const i = px * 4;
-
-          const r = imgData[i];
-          const g = imgData[i + 1];
-          const b = imgData[i + 2];
+      for (let y = 0; y < blockHeight - 1; y += 2) {
+        for (let x = 0; x < blockWidth - 1; x += 2) {
+          const px = ((row * blockHeight + y) * width + (col * blockWidth + x)) * 4;
+          const r = imgData[px];
+          const g = imgData[px + 1];
+          const b = imgData[px + 2];
           const brightness = (r + g + b) / 3;
 
-          const iRight = ((row * blockHeight + y) * width + (col * blockWidth + x + 1)) * 4;
-          const r2 = imgData[iRight];
-          const g2 = imgData[iRight + 1];
-          const b2 = imgData[iRight + 2];
+          const pxRight = ((row * blockHeight + y) * width + (col * blockWidth + x + 1)) * 4;
+          const r2 = imgData[pxRight];
+          const g2 = imgData[pxRight + 1];
+          const b2 = imgData[pxRight + 2];
           const brightness2 = (r2 + g2 + b2) / 3;
 
-          const diff = Math.abs(brightness - brightness2);
-          totalContrast += diff;
+          totalContrast += Math.abs(brightness - brightness2);
           count++;
         }
       }
@@ -43,8 +40,9 @@ function analyzeImageForBestPosition(imgData, width, height) {
     }
   }
 
-  const bestX = bestBlock.x * blockWidth + 20;
-  const bestY = bestBlock.y * blockHeight + 40;
   const bestFontSize = Math.min(60, width / 20);
+  const bestX = bestBlock.x * blockWidth + 20;
+  const bestY = bestBlock.y * blockHeight + bestFontSize + 10;
+
   return { x: bestX, y: bestY, fontSize: bestFontSize };
 }
