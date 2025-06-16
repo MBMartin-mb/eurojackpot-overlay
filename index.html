@@ -61,6 +61,22 @@
     const jackpotInput = document.getElementById('jackpotAmount');
     const form = document.getElementById('uploadForm');
 
+    // Funkce pro formátování čísla s mezerami jako oddělovači tisíců
+    function formatNumberWithSpaces(number) {
+      return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    }
+
+    // Kontrola, zda je font načtený
+    function isFontLoaded(fontFamily) {
+      const canvasTest = document.createElement('canvas');
+      const ctxTest = canvasTest.getContext('2d');
+      ctxTest.font = '40px Arial';
+      const arialWidth = ctxTest.measureText('HRAJTE O').width;
+      ctxTest.font = '40px ' + fontFamily;
+      const fontWidth = ctxTest.measureText('HRAJTE O').width;
+      return fontWidth !== arialWidth;
+    }
+
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const file = imageInput.files[0];
@@ -74,14 +90,23 @@
 
           const textY = img.height * 0.1;
           const fontSize = Math.min(60, img.width / 20);
-          ctx.font = `${fontSize}px AachenStdBold`;
-          ctx.fillStyle = 'yellow';
-          ctx.shadowColor = 'black';
-          ctx.shadowBlur = 4;
-          ctx.shadowOffsetX = 2;
-          ctx.shadowOffsetY = 2;
-          ctx.fillText('HRAJTE O', 20, textY);
-          ctx.fillText(`${jackpot} Kč`, 20, textY + fontSize + 10);
+
+          // Počkejte, dokud se font nenahraje
+          function drawText() {
+            if (isFontLoaded('AachenStdBold')) {
+              ctx.font = `${fontSize}px AachenStdBold`;
+              ctx.fillStyle = 'yellow';
+              ctx.shadowColor = 'black';
+              ctx.shadowBlur = 4;
+              ctx.shadowOffsetX = 2;
+              ctx.shadowOffsetY = 2;
+              ctx.fillText('HRAJTE O', 20, textY);
+              ctx.fillText(`${formatNumberWithSpaces(jackpot)} Kč`, 20, textY + fontSize + 10);
+            } else {
+              setTimeout(drawText, 100); // Zkus znovu za 100ms
+            }
+          }
+          drawText();
         };
         img.src = URL.createObjectURL(file);
       } else {
