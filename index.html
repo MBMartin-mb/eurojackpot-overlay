@@ -1,62 +1,22 @@
-<script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="cs">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Eurojackpot Overlay</title>
   <style>
-    body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-    #canvas { max-width: 100%; }
-    #uploadForm { margin-bottom: 20px; }
-    #result { margin-top: 20px; }
+    body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; background-color: #f0f0f0; }
+    #canvas { max-width: 100%; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    #uploadForm { margin-bottom: 20px; display: flex; gap: 10px; }
+    #result { margin-top: 20px; position: relative; }
     @font-face {
-      font-family: 'EurojackpotFont';
-      src: url('eurojackpot.ttf') format('truetype');
+      font-family: 'AachenStdBold';
+      src: url('AachenStd-Bold.ttf') format('truetype');
     }
     .overlay-text {
-      font-family: 'EurojackpotFont', sans-serif;
+      font-family: 'AachenStdBold', sans-serif;
       color: yellow;
       text-shadow: 2px 2px 4px black;
-      position: absolute;
       font-size: 60px;
       pointer-events: none;
     }
@@ -64,8 +24,8 @@
 </head>
 <body>
   <form id="uploadForm">
-    <input type="file" id="imageInput" accept="image/*">
-    <input type="number" id="jackpotAmount" placeholder="Zadejte částku v Kč" min="0" step="1000">
+    <input type="file" id="imageInput" accept="image/*" required>
+    <input type="number" id="jackpotAmount" placeholder="Zadejte částku v Kč" min="0" step="1000" required>
     <button type="submit">Vygenerovat</button>
   </form>
   <div id="result">
@@ -86,21 +46,25 @@
       if (file && jackpot) {
         const img = new Image();
         img.onload = () => {
+          // Nastavení velikosti canvasu podle obrázku
           canvas.width = img.width;
           canvas.height = img.height;
           ctx.drawImage(img, 0, 0);
 
-          // Vylepšené umístění: levý horní roh s posunem
-          ctx.font = '60px EurojackpotFont';
+          // Vylepšené umístění: dynamické podle výšky obrázku
+          const textY = img.height * 0.1; // 10% od vrchu
+          ctx.font = '60px AachenStdBold';
           ctx.fillStyle = 'yellow';
           ctx.shadowColor = 'black';
           ctx.shadowBlur = 4;
           ctx.shadowOffsetX = 2;
           ctx.shadowOffsetY = 2;
-          ctx.fillText('HRAJTE O', 20, 80);
-          ctx.fillText(`${jackpot} Kč`, 20, 150);
+          ctx.fillText('HRAJTE O', 20, textY);
+          ctx.fillText(`${jackpot} Kč`, 20, textY + 70);
         };
         img.src = URL.createObjectURL(file);
+      } else {
+        alert('Prosím, nahrajte obrázek a zadejte částku!');
       }
     });
   </script>
