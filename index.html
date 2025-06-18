@@ -79,15 +79,25 @@
       return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
     }
 
-    // Kontrola, zda je font načtený
-    function isFontLoaded(fontFamily) {
-      const canvasTest = document.createElement('canvas');
-      const ctxTest = canvasTest.getContext('2d');
-      ctxTest.font = '40px Arial';
-      const arialWidth = ctxTest.measureText('HRAJTE O').width;
-      ctxTest.font = '40px ' + fontFamily;
-      const fontWidth = ctxTest.measureText('HRAJTE O').width;
-      return fontWidth !== arialWidth;
+    // Kontrola, zda je font načtený (vylepšená verze s opakováním)
+    function isFontLoaded(fontFamily, callback) {
+      let attempts = 0;
+      const maxAttempts = 50; // Maximální počet pokusů (5 sekund při 100ms intervalu)
+      const checkFont = () => {
+        const canvasTest = document.createElement('canvas');
+        const ctxTest = canvasTest.getContext('2d');
+        ctxTest.font = '40px Arial';
+        const arialWidth = ctxTest.measureText('HRAJTE O').width;
+        ctxTest.font = '40px ' + fontFamily;
+        const fontWidth = ctxTest.measureText('HRAJTE O').width;
+        if (fontWidth !== arialWidth || attempts >= maxAttempts) {
+          callback(fontWidth !== arialWidth);
+        } else {
+          attempts++;
+          setTimeout(checkFont, 100);
+        }
+      };
+      checkFont();
     }
 
     // Simulace AI analýzy obrázku a určení nejlepší pozice
@@ -124,7 +134,7 @@
     }
 
     // Funkce pro výpočet pozice podle výběru
-    function getPositionCoordinates(img, fontSize) {
+    function getPositionCoordinates(img, fontSize, jackpot) {
       const padding = 20;
       const position = positionSelect.value;
       if (position === 'auto') {
@@ -136,11 +146,15 @@
         case 'top-left':
           return { x: padding, y: img.height * 0.1, fontSize: fontSize };
         case 'top-right':
-          return { x: img.width - ctx.measureText('HRAJTE O').width - padding, y: img.height * 0.1, fontSize: fontSize };
+          ctx.font = `${fontSize}px AachenStdBold`;
+          const jackpotWidth = ctx.measureText(`${formatNumberWithSpaces(jackpot)} Kč`).width;
+          return { x: img.width - jackpotWidth - padding, y: img.height * 0.1, fontSize: fontSize };
         case 'bottom-left':
           return { x: padding, y: img.height - fontSize * 2 - padding, fontSize: fontSize };
         case 'bottom-right':
-          return { x: img.width - ctx.measureText('HRAJTE O').width - padding, y: img.height - fontSize * 2 - padding, fontSize: fontSize };
+          ctx.font = `${fontSize}px AachenStdBold`;
+          const jackpotWidthBottom = ctx.measureText(`${formatNumberWithSpaces(jackpot)} Kč`).width;
+          return { x: img.width - jackpotWidthBottom - padding, y: img.height - fontSize * 2 - padding, fontSize: fontSize };
         default:
           return { x: padding, y: img.height * 0.1, fontSize: fontSize };
       }
@@ -160,30 +174,9 @@
           let fontSize = Math.min(60, Math.min(img.width, img.height) / 20);
 
           // Počkejte, dokud se font nenahraje
-          function drawText() {
-            if (isFontLoaded('AachenStdBold')) {
-              ctx.font = `${fontSize}px AachenStdBold`;
-              const textWidth = ctx.measureText('HRAJTE O').width;
-              const textHeight = fontSize;
-
-              const { x, y, fontSize: adjustedFontSize } = getPositionCoordinates(img, fontSize);
-
-              // Upravit pozici pro vpravo nahoře a vpravo dole, aby zůstal uvnitř
-              let finalX = x;
-              let finalY = y;
-              if (positionSelect.value === 'top-right' && x + textWidth > img.width) {
-                finalX = img.width - textWidth - padding;
-              }
-              if (positionSelect.value === 'bottom-right' && x + textWidth > img.width) {
-                finalX = img.width - textWidth - padding;
-              }
-              if (positionSelect.value === 'top-right' && y + textHeight * 2 > img.height) {
-                finalY = img.height * 0.1;
-              }
-              if (positionSelect.value === 'bottom-right' && y + textHeight * 2 > img.height) {
-                finalY = img.height - textHeight * 2 - padding;
-              }
-
+          isFontLoaded('AachenStdBold', (isLoaded) => {
+            if (isLoaded) {
+              const { x, y, fontSize: adjustedFontSize } = getPositionCoordinates(img, fontSize, jackpot);
               ctx.font = `${adjustedFontSize}px AachenStdBold`;
               ctx.fillStyle = '#FDB813';
               ctx.shadowColor = 'black';
@@ -191,15 +184,15 @@
               ctx.shadowOffsetX = 2;
               ctx.shadowOffsetY = 2;
 
-              ctx.fillText('HRAJTE O', finalX, finalY);
+              ctx.fillText('HRAJTE O', x, y);
 
               ctx.fillStyle = 'white';
-              ctx.fillText(`${formatNumberWithSpaces(jackpot)} Kč`, finalX, finalY + adjustedFontSize + 10);
+              ctx.fillText(`${formatNumberWithSpaces(jackpot)} Kč`, x, y + adjustedFontSize + 10);
             } else {
-              setTimeout(drawText, 100);
+              console.error('Font se nepodařilo načíst.');
+              alert('Font se nepodařilo načíst, zkuste to znovu!');
             }
-          }
-          drawText();
+          });
         };
         img.src = URL.createObjectURL(file);
       } else {
