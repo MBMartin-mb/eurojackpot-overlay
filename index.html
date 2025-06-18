@@ -41,6 +41,11 @@
       text-shadow: 2px 2px 4px black;
       pointer-events: none;
     }
+    .version {
+      margin-left: 10px;
+      font-size: 14px;
+      color: #666;
+    }
   </style>
 </head>
 <body>
@@ -55,6 +60,7 @@
       <option value="auto">Automatické umístění</option>
     </select>
     <button type="submit">Vygenerovat</button>
+    <span class="version">Verze 1.2</span>
   </form>
   <div id="result">
     <canvas id="canvas"></canvas>
@@ -156,18 +162,39 @@
           // Počkejte, dokud se font nenahraje
           function drawText() {
             if (isFontLoaded('AachenStdBold')) {
+              ctx.font = `${fontSize}px AachenStdBold`;
+              const textWidth = ctx.measureText('HRAJTE O').width;
+              const textHeight = fontSize;
+
               const { x, y, fontSize: adjustedFontSize } = getPositionCoordinates(img, fontSize);
+
+              // Upravit pozici pro vpravo nahoře a vpravo dole, aby zůstal uvnitř
+              let finalX = x;
+              let finalY = y;
+              if (positionSelect.value === 'top-right' && x + textWidth > img.width) {
+                finalX = img.width - textWidth - padding;
+              }
+              if (positionSelect.value === 'bottom-right' && x + textWidth > img.width) {
+                finalX = img.width - textWidth - padding;
+              }
+              if (positionSelect.value === 'top-right' && y + textHeight * 2 > img.height) {
+                finalY = img.height * 0.1;
+              }
+              if (positionSelect.value === 'bottom-right' && y + textHeight * 2 > img.height) {
+                finalY = img.height - textHeight * 2 - padding;
+              }
+
               ctx.font = `${adjustedFontSize}px AachenStdBold`;
-              ctx.fillStyle = '#FDB813'; // Barva "HRAJTE O"
+              ctx.fillStyle = '#FDB813';
               ctx.shadowColor = 'black';
               ctx.shadowBlur = 4;
               ctx.shadowOffsetX = 2;
               ctx.shadowOffsetY = 2;
 
-              ctx.fillText('HRAJTE O', x, y);
+              ctx.fillText('HRAJTE O', finalX, finalY);
 
-              ctx.fillStyle = 'white'; // Barva částky s Kč
-              ctx.fillText(`${formatNumberWithSpaces(jackpot)} Kč`, x, y + adjustedFontSize + 10);
+              ctx.fillStyle = 'white';
+              ctx.fillText(`${formatNumberWithSpaces(jackpot)} Kč`, finalX, finalY + adjustedFontSize + 10);
             } else {
               setTimeout(drawText, 100);
             }
