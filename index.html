@@ -60,7 +60,7 @@
       <option value="auto" selected>Automatické umístění</option>
     </select>
     <button type="submit">Vygenerovat</button>
-    <span class="version">Verze 1.5</span>
+    <span class="version">Verze 1.6</span>
   </form>
   <div id="result">
     <canvas id="canvas"></canvas>
@@ -92,17 +92,17 @@
       }
     }
 
-    // Simulace analýzy obrázku a určení nejlepší pozice nad osobou
+    // Simulace analýzy obrázku a určení nejlepší pozice nad "VSAUDIT SI"
     function analyzeImageForBestPosition(imgData, width, height) {
       let bestX = 20;
-      let bestY = height * 0.1; // Výchozí pozice, preferujeme horní část nad osobou
+      let bestY = height * 0.1; // Výchozí pozice, upravíme podle "VSAUDIT SI"
       let bestFontSize = Math.min(60, Math.min(width, height) / 20);
 
       const threshold = 200; // Práh pro "prázdnou" oblast
       let maxEmptyArea = 0;
       const sampleSize = 10;
 
-      // Vypočítat průměrnou hustotu a varianci pro detekci osoby
+      // Vypočítat průměrnou hustotu a varianci pro detekci textu a osoby
       let totalBrightness = 0;
       let brightnessCount = 0;
       for (let y = 0; y < height; y += sampleSize) {
@@ -127,17 +127,38 @@
         }
       }
       variance /= brightnessCount;
-      const densityThreshold = avgBrightness + variance * 0.7; // Zvýšení prahu pro lepší detekci osoby
+      const densityThreshold = avgBrightness + variance * 0.7; // Detekce hustších oblastí (text/osoba)
 
-      // Prioritní hledání v horní části (0 % až 30 % výšky) nad osobou
-      const topHeight = height * 0.3; // Omezení na horní třetinu
-      for (let y = 0; y <= topHeight; y += sampleSize) {
+      // Najít oblast s "VSAUDIT SI" (předpokládáme horní polovinu s vyšší hustotou)
+      let vsaditSiY = height * 0.3; // Výchozí hodnota, upravíme
+      for (let y = 0; y < height * 0.5; y += sampleSize) { // Hledáme v horní polovině
+        let rowDensity = 0;
+        let rowCount = 0;
         for (let x = 0; x < width; x += sampleSize) {
           const i = (y * width + x) * 4;
           if (i < imgData.length) {
             const brightness = (imgData[i] + imgData[i + 1] + imgData[i + 2]) / 3;
-            if (brightness > threshold && brightness < densityThreshold) { // Vyhnout se oblastem s osobou
-              const area = (width - x) * (y + 1) * 0.1; // Vyšší váha pro horní část
+            if (brightness < densityThreshold) { // Hustší oblast (text)
+              rowDensity += (densityThreshold - brightness); // Váha podle kontrastu
+              rowCount++;
+            }
+          }
+        }
+        if (rowCount > 0 && rowDensity / rowCount > 50) { // Prah pro detekci textu
+          vsaditSiY = y;
+          break;
+        }
+      }
+      bestY = Math.max(20, vsaditSiY - bestFontSize * 2 - 20); // Umístění nad "VSAUDIT SI" s offsetem
+
+      // Ověřit, zda je oblast prázdná a upravit pozici
+      for (let y = bestY; y < bestY + bestFontSize * 2; y += sampleSize) {
+        for (let x = 0; x < width; x += sampleSize) {
+          const i = (y * width + x) * 4;
+          if (i < imgData.length) {
+            const brightness = (imgData[i] + imgData[i + 1] + imgData[i + 2]) / 3;
+            if (brightness > threshold) {
+              const area = (width - x) * (y + 1) * 0.1;
               if (area > maxEmptyArea && y + bestFontSize * 2 < height && x + ctx.measureText('HRAJTE O').width < width) {
                 bestX = x;
                 bestY = y;
@@ -148,7 +169,7 @@
         }
       }
 
-      // Pokud není nalezena dostatečná oblast v horní části, zkus střední část (30 % až 60 %)
+      // Pokud není nalezena oblast nad "VSAUDIT SI", zkus střed nebo dolní část
       if (maxEmptyArea === 0) {
         const midHeightStart = height * 0.3;
         const midHeightEnd = height * 0.6;
@@ -158,7 +179,7 @@
             if (i < imgData.length) {
               const brightness = (imgData[i] + imgData[i + 1] + imgData[i + 2]) / 3;
               if (brightness > threshold && brightness < densityThreshold) {
-                const area = (width - x) * (y + 1) * 0.05; // Nižší váha pro střed
+                const area = (width - x) * (y + 1) * 0.05;
                 if (area > maxEmptyArea && y + bestFontSize * 2 < height && x + ctx.measureText('HRAJTE O').width < width) {
                   bestX = x;
                   bestY = y;
@@ -170,7 +191,6 @@
         }
       }
 
-      // Pokud stále není nalezena oblast, zkus dolní část jako zálohu
       if (maxEmptyArea === 0) {
         const bottomHeight = height * 0.7;
         for (let y = height; y >= bottomHeight; y -= sampleSize) {
