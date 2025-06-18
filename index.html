@@ -60,7 +60,7 @@
       <option value="auto">Automatické umístění</option>
     </select>
     <button type="submit">Vygenerovat</button>
-    <span class="version">Verze 1.2</span>
+    <span class="version">Verze 1.3</span>
   </form>
   <div id="result">
     <canvas id="canvas"></canvas>
@@ -79,25 +79,17 @@
       return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
     }
 
-    // Kontrola, zda je font načtený (vylepšená verze s opakováním)
-    function isFontLoaded(fontFamily, callback) {
-      let attempts = 0;
-      const maxAttempts = 50; // Maximální počet pokusů (5 sekund při 100ms intervalu)
-      const checkFont = () => {
-        const canvasTest = document.createElement('canvas');
-        const ctxTest = canvasTest.getContext('2d');
-        ctxTest.font = '40px Arial';
-        const arialWidth = ctxTest.measureText('HRAJTE O').width;
-        ctxTest.font = '40px ' + fontFamily;
-        const fontWidth = ctxTest.measureText('HRAJTE O').width;
-        if (fontWidth !== arialWidth || attempts >= maxAttempts) {
-          callback(fontWidth !== arialWidth);
-        } else {
-          attempts++;
-          setTimeout(checkFont, 100);
-        }
-      };
-      checkFont();
+    // Načtení fontu pomocí FontFace API
+    async function loadFont() {
+      const font = new FontFace('AachenStdBold', 'url(AachenStd-Bold.ttf)');
+      try {
+        await font.load();
+        document.fonts.add(font);
+        console.log('Font AachenStdBold načten.');
+      } catch (error) {
+        console.error('Chyba při načítání fontu:', error);
+        alert('Nepodařilo se načíst font, zkuste obnovit stránku!');
+      }
     }
 
     // Simulace AI analýzy obrázku a určení nejlepší pozice
@@ -160,7 +152,7 @@
       }
     }
 
-    form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const file = imageInput.files[0];
       const jackpot = jackpotInput.value;
@@ -173,25 +165,23 @@
 
           let fontSize = Math.min(60, Math.min(img.width, img.height) / 20);
 
-          // Počkejte, dokud se font nenahraje
-          isFontLoaded('AachenStdBold', (isLoaded) => {
-            if (isLoaded) {
-              const { x, y, fontSize: adjustedFontSize } = getPositionCoordinates(img, fontSize, jackpot);
-              ctx.font = `${adjustedFontSize}px AachenStdBold`;
-              ctx.fillStyle = '#FDB813';
-              ctx.shadowColor = 'black';
-              ctx.shadowBlur = 4;
-              ctx.shadowOffsetX = 2;
-              ctx.shadowOffsetY = 2;
+          // Počkejte na načtení fontu a poté vykresli
+          loadFont().then(() => {
+            const { x, y, fontSize: adjustedFontSize } = getPositionCoordinates(img, fontSize, jackpot);
+            ctx.font = `${adjustedFontSize}px AachenStdBold`;
+            ctx.fillStyle = '#FDB813';
+            ctx.shadowColor = 'black';
+            ctx.shadowBlur = 4;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
 
-              ctx.fillText('HRAJTE O', x, y);
+            ctx.fillText('HRAJTE O', x, y);
 
-              ctx.fillStyle = 'white';
-              ctx.fillText(`${formatNumberWithSpaces(jackpot)} Kč`, x, y + adjustedFontSize + 10);
-            } else {
-              console.error('Font se nepodařilo načíst.');
-              alert('Font se nepodařilo načíst, zkuste to znovu!');
-            }
+            ctx.fillStyle = 'white';
+            ctx.fillText(`${formatNumberWithSpaces(jackpot)} Kč`, x, y + adjustedFontSize + 10);
+          }).catch((error) => {
+            console.error('Chyba při načítání fontu:', error);
+            alert('Nepodařilo se načíst font, zkuste obnovit stránku!');
           });
         };
         img.src = URL.createObjectURL(file);
