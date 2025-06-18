@@ -57,10 +57,10 @@
       <option value="top-right">Pravý horní roh</option>
       <option value="bottom-left">Levý dolní roh</option>
       <option value="bottom-right">Pravý dolní roh</option>
-      <option value="auto">Automatické umístění</option>
+      <option value="auto" selected>Automatické umístění</option>
     </select>
     <button type="submit">Vygenerovat</button>
-    <span class="version">Verze 1.3</span>
+    <span class="version">Verze 1.4</span>
   </form>
   <div id="result">
     <canvas id="canvas"></canvas>
@@ -102,16 +102,38 @@
       let maxEmptyArea = 0;
       const sampleSize = 10;
 
-      for (let y = 0; y < height; y += sampleSize) {
+      // Prioritní hledání v dolní části (od 70 % výšky nahoru)
+      const bottomHeight = height * 0.7;
+      for (let y = height; y >= bottomHeight; y -= sampleSize) {
         for (let x = 0; x < width; x += sampleSize) {
           const i = (y * width + x) * 4;
-          const brightness = (imgData[i] + imgData[i + 1] + imgData[i + 2]) / 3;
-          if (brightness > threshold) {
-            const area = (width - x) * (height - y) * 0.05;
-            if (area > maxEmptyArea && y + bestFontSize * 2 < height && x + ctx.measureText('HRAJTE O').width < width) {
-              bestX = x;
-              bestY = y;
-              maxEmptyArea = area;
+          if (i < imgData.length) {
+            const brightness = (imgData[i] + imgData[i + 1] + imgData[i + 2]) / 3;
+            if (brightness > threshold) {
+              const area = (width - x) * (height - y) * 0.05;
+              if (area > maxEmptyArea && y + bestFontSize * 2 < height && x + ctx.measureText('HRAJTE O').width < width) {
+                bestX = x;
+                bestY = y;
+                maxEmptyArea = area;
+              }
+            }
+          }
+        }
+      }
+
+      // Pokud není nalezena dostatečná oblast v dolní části, zkus celý obrázek
+      if (maxEmptyArea === 0) {
+        for (let y = 0; y < height; y += sampleSize) {
+          for (let x = 0; x < width; x += sampleSize) {
+            const i = (y * width + x) * 4;
+            const brightness = (imgData[i] + imgData[i + 1] + imgData[i + 2]) / 3;
+            if (brightness > threshold) {
+              const area = (width - x) * (height - y) * 0.05;
+              if (area > maxEmptyArea && y + bestFontSize * 2 < height && x + ctx.measureText('HRAJTE O').width < width) {
+                bestX = x;
+                bestY = y;
+                maxEmptyArea = area;
+              }
             }
           }
         }
