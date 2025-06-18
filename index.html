@@ -1,188 +1,127 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
 
-<!DOCTYPE html>
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
 <html lang="cs">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Eurojackpot Overlay</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px;
-      background-color: #f0f0f0;
-      margin: 0;
-      min-height: 100vh;
-    }
-    #canvas {
-      max-width: 100%;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      background-color: rgba(255, 255, 255, 0.8);
-    }
-    #uploadForm {
-      margin-bottom: 20px;
-      display: flex;
-      gap: 10px;
-      padding: 10px;
-      border-radius: 5px;
-      background-color: rgba(255, 255, 255, 0.9);
-    }
-    #result {
-      margin-top: 20px;
-      position: relative;
-    }
-    @font-face {
-      font-family: 'AachenStdBold';
-      src: url('AachenStd-Bold.ttf') format('truetype');
-    }
-    .overlay-text {
-      font-family: 'AachenStdBold', sans-serif;
-      color: yellow;
-      text-shadow: 2px 2px 4px black;
-      pointer-events: none;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Umístění, nahrání a bonus</title>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <form id="uploadForm">
-    <input type="file" id="imageInput" accept="image/*" required>
-    <input type="number" id="jackpotAmount" placeholder="Zadejte částku v Kč" min="0" step="1000" required>
-    <select id="positionSelect">
-      <option value="top-left">Levý horní roh</option>
-      <option value="top-right">Pravý horní roh</option>
-      <option value="bottom-left">Levý dolní roh</option>
-      <option value="bottom-right">Pravý dolní roh</option>
-      <option value="auto">Automatické umístění</option>
-    </select>
-    <button type="submit">Vygenerovat</button>
-  </form>
-  <div id="result">
-    <canvas id="canvas"></canvas>
-  </div>
-
-  <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const imageInput = document.getElementById('imageInput');
-    const jackpotInput = document.getElementById('jackpotAmount');
-    const form = document.getElementById('uploadForm');
-    const positionSelect = document.getElementById('positionSelect');
-
-    function formatNumberWithSpaces(number) {
-      return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-    }
-
-    function isFontLoaded(fontFamily) {
-      const canvasTest = document.createElement('canvas');
-      const ctxTest = canvasTest.getContext('2d');
-      ctxTest.font = '40px Arial';
-      const arialWidth = ctxTest.measureText('HRAJTE O').width;
-      ctxTest.font = '40px ' + fontFamily;
-      const fontWidth = ctxTest.measureText('HRAJTE O').width;
-      return fontWidth !== arialWidth;
-    }
-
-    function analyzeImageForBestPosition(imgData, width, height) {
-      const cols = 6;
-      const rows = 6;
-      const blockWidth = Math.floor(width / cols);
-      const blockHeight = Math.floor(height / rows);
-      let bestBlock = { x: 0, y: 0 };
-      let minContrast = Infinity;
-
-      for (let row = 0; row < rows; row++) {
-        for (let col = 0; col < cols; col++) {
-          let totalContrast = 0;
-          let count = 0;
-          for (let y = 0; y < blockHeight - 1; y += 2) {
-            for (let x = 0; x < blockWidth - 1; x += 2) {
-              const px = ((row * blockHeight + y) * width + (col * blockWidth + x)) * 4;
-              const r = imgData[px];
-              const g = imgData[px + 1];
-              const b = imgData[px + 2];
-              const brightness = (r + g + b) / 3;
-              const pxRight = ((row * blockHeight + y) * width + (col * blockWidth + x + 1)) * 4;
-              const r2 = imgData[pxRight];
-              const g2 = imgData[pxRight + 1];
-              const b2 = imgData[pxRight + 2];
-              const brightness2 = (r2 + g2 + b2) / 3;
-              totalContrast += Math.abs(brightness - brightness2);
-              count++;
-            }
-          }
-          const avgContrast = totalContrast / count;
-          if (avgContrast < minContrast) {
-            minContrast = avgContrast;
-            bestBlock = { x: col, y: row };
-          }
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+        <h1 class="text-2xl font-bold text-center mb-4">Nastavení aplikace</h1>
+        
+        <!-- Sekce pro výběr umístění -->
+        <h2 class="text-lg font-semibold mb-2">Vyberte umístění</h2>
+        <div class="grid grid-cols-2 gap-2 mb-4">
+            <button onclick="levyhor()" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">Levý horní roh</button>
+            <button onclick="pravyhor()" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">Pravý horní roh</button>
+            <button onclick="levydol()" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">Levý dolní roh</button>
+            <button onclick="pravydol()" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">Pravý dolní roh</button>
+            <button onclick="auto()" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 col-span-2">Automatické umístění</button>
+        </div>
+        
+        <!-- Sekce pro nahrání souboru -->
+        <h2 class="text-lg font-semibold mb-2">Nahrát soubor</h2>
+        <input type="file" id="fileInput" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 mb-4" onchange="handleFileUpload()">
+        
+        <!-- Sekce pro velikost bonusu -->
+        <h2 class="text-lg font-semibold mb-2">Velikost bonusu</h2>
+        <div class="flex items-center gap-2 mb-4">
+            <input type="number" id="bonusSize" min="0" step="1" value="2160000000" placeholder="Zadejte velikost bonusu" class="w-full p-2 border rounded">
+            <button onclick="setBonusSize()" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">Nastavit</button>
+        </div>
+        
+        <!-- Tlačítko Vygenerovat -->
+        <div class="text-center">
+            <button onclick="generate()" class="bg-green-500 text-white py-2 px-6 rounded hover:bg-green-600">Vygenerovat</button>
+        </div>
+        
+        <!-- Výstupní sekce -->
+        <div id="output" class="mt-4 text-gray-700"></div>
+    </div>
+    <script>
+        function levyhor() {
+            document.getElementById('output').innerText = "Vybráno: Levý horní roh";
+            // Přidejte zde další logiku
         }
-      }
-
-      const bestFontSize = Math.min(60, width / 20);
-      const bestX = bestBlock.x * blockWidth + 20;
-      const bestY = bestBlock.y * blockHeight + bestFontSize + 10;
-      return { x: bestX, y: bestY, fontSize: bestFontSize };
-    }
-
-    function getPositionCoordinates(img, fontSize) {
-      const padding = 20;
-      const position = positionSelect.value;
-      if (position === 'auto') {
-        const imgData = ctx.getImageData(0, 0, img.width, img.height).data;
-        return analyzeImageForBestPosition(imgData, img.width, img.height);
-      }
-      switch (position) {
-        case 'top-left':
-          return { x: padding, y: img.height * 0.1 };
-        case 'top-right':
-          return { x: img.width - ctx.measureText('HRAJTE O').width - padding, y: img.height * 0.1 };
-        case 'bottom-left':
-          return { x: padding, y: img.height - fontSize * 2 - padding };
-        case 'bottom-right':
-          return { x: img.width - ctx.measureText('HRAJTE O').width - padding, y: img.height - fontSize * 2 - padding };
-        default:
-          return { x: padding, y: img.height * 0.1 };
-      }
-    }
-
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const file = imageInput.files[0];
-      const jackpot = jackpotInput.value;
-      if (file && jackpot) {
-        const img = new Image();
-        img.onload = () => {
-          canvas.width = img.width;
-          canvas.height = img.height;
-          ctx.drawImage(img, 0, 0);
-
-          const fontSize = Math.min(60, img.width / 20);
-
-          function drawText() {
-            if (isFontLoaded('AachenStdBold')) {
-              ctx.font = `${fontSize}px AachenStdBold`;
-              ctx.fillStyle = 'yellow';
-              ctx.shadowColor = 'black';
-              ctx.shadowBlur = 4;
-              ctx.shadowOffsetX = 2;
-              ctx.shadowOffsetY = 2;
-
-              const { x, y } = getPositionCoordinates(img, fontSize);
-              ctx.fillText('HRAJTE O', x, y);
-              ctx.fillText(`${formatNumberWithSpaces(jackpot)} Kč`, x, y + fontSize + 10);
+        function pravyhor() {
+            document.getElementById('output').innerText = "Vybráno: Pravý horní roh";
+            // Přidejte zde další logiku
+        }
+        function levydol() {
+            document.getElementById('output').innerText = "Vybráno: Levý dolní roh";
+            // Přidejte zde další logiku
+        }
+        function pravydol() {
+            document.getElementById('output').innerText = "Vybráno: Pravý dolní roh";
+            // Přidejte zde další logiku
+        }
+        function auto() {
+            document.getElementById('output').innerText = "Vybráno: Automatické umístění";
+            // Přidejte zde další logiku
+        }
+        function handleFileUpload() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            if (file) {
+                document.getElementById('output').innerText = `Nahrán soubor: ${file.name}`;
+                // Přidejte zde logiku pro zpracování souboru
             } else {
-              setTimeout(drawText, 100);
+                document.getElementById('output').innerText = "Žádný soubor nebyl nahrán.";
             }
-          }
-          drawText();
-        };
-        img.src = URL.createObjectURL(file);
-      } else {
-        alert('Prosím, nahrajte obrázek a zadejte částku!');
-      }
-    });
-  </script>
+        }
+        function setBonusSize() {
+            const bonusSize = document.getElementById('bonusSize').value;
+            if (bonusSize && bonusSize >= 0) {
+                document.getElementById('output').innerText = `Velikost bonusu nastavena na: ${bonusSize}`;
+                // Přidejte zde další logiku
+            } else {
+                document.getElementById('output').innerText = "Zadejte platnou velikost bonusu.";
+            }
+        }
+        function generate() {
+            document.getElementById('output').innerText = "Generování proběhlo!";
+            // Přidejte zde logiku pro generování (např. kombinace umístění, souboru a bonusu)
+        }
+    </script>
 </body>
 </html>
