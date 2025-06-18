@@ -38,7 +38,6 @@
     }
     .overlay-text {
       font-family: 'AachenStdBold', sans-serif;
-      color: yellow;
       text-shadow: 2px 2px 4px black;
       pointer-events: none;
     }
@@ -47,7 +46,7 @@
 <body>
   <form id="uploadForm">
     <input type="file" id="imageInput" accept="image/*" required>
-    <input type="number" id="jackpotAmount" placeholder="Zadejte částku v Kč" min="0" step="1000" required>
+    <input type="number" id="jackpotAmount" placeholder="Zadejte částku v Kč" min="0" step="1000" value="2160000000" required>
     <select id="positionSelect">
       <option value="top-left">Levý horní roh</option>
       <option value="top-right">Pravý horní roh</option>
@@ -89,25 +88,30 @@
     function analyzeImageForBestPosition(imgData, width, height) {
       let bestX = 20;
       let bestY = height * 0.1;
-      let bestFontSize = Math.min(60, width / 20);
+      let bestFontSize = Math.min(60, Math.min(width, height) / 20);
 
-      const threshold = 200; // Práh pro "prázdnou" oblast (světlé pixely)
+      const threshold = 200;
       let maxEmptyArea = 0;
-      const sampleSize = 10; // Vzorkování pro rychlost
+      const sampleSize = 10;
 
       for (let y = 0; y < height; y += sampleSize) {
         for (let x = 0; x < width; x += sampleSize) {
           const i = (y * width + x) * 4;
           const brightness = (imgData[i] + imgData[i + 1] + imgData[i + 2]) / 3;
           if (brightness > threshold) {
-            const area = width * height * 0.05;
-            if (y + bestFontSize * 2 < height && x + ctx.measureText('HRAJTE O').width < width) {
+            const area = (width - x) * (height - y) * 0.05;
+            if (area > maxEmptyArea && y + bestFontSize * 2 < height && x + ctx.measureText('HRAJTE O').width < width) {
               bestX = x;
               bestY = y;
               maxEmptyArea = area;
             }
           }
         }
+      }
+
+      const textWidth = ctx.measureText('HRAJTE O').width;
+      if (bestX + textWidth > width - 20) {
+        bestFontSize = Math.min(bestFontSize, (width - bestX - 20) / textWidth * bestFontSize);
       }
 
       return { x: bestX, y: bestY, fontSize: bestFontSize };
@@ -119,19 +123,20 @@
       const position = positionSelect.value;
       if (position === 'auto') {
         const imgData = ctx.getImageData(0, 0, img.width, img.height).data;
-        return analyzeImageForBestPosition(imgData, img.width, img.height);
+        const result = analyzeImageForBestPosition(imgData, img.width, img.height);
+        return { x: result.x, y: result.y, fontSize: result.fontSize };
       }
       switch (position) {
         case 'top-left':
-          return { x: padding, y: img.height * 0.1 };
+          return { x: padding, y: img.height * 0.1, fontSize: fontSize };
         case 'top-right':
-          return { x: img.width - ctx.measureText('HRAJTE O').width - padding, y: img.height * 0.1 };
+          return { x: img.width - ctx.measureText('HRAJTE O').width - padding, y: img.height * 0.1, fontSize: fontSize };
         case 'bottom-left':
-          return { x: padding, y: img.height - fontSize * 2 - padding };
+          return { x: padding, y: img.height - fontSize * 2 - padding, fontSize: fontSize };
         case 'bottom-right':
-          return { x: img.width - ctx.measureText('HRAJTE O').width - padding, y: img.height - fontSize * 2 - padding };
+          return { x: img.width - ctx.measureText('HRAJTE O').width - padding, y: img.height - fontSize * 2 - padding, fontSize: fontSize };
         default:
-          return { x: padding, y: img.height * 0.1 };
+          return { x: padding, y: img.height * 0.1, fontSize: fontSize };
       }
     }
 
@@ -146,23 +151,25 @@
           canvas.height = img.height;
           ctx.drawImage(img, 0, 0);
 
-          const fontSize = Math.min(60, img.width / 20);
+          let fontSize = Math.min(60, Math.min(img.width, img.height) / 20);
 
           // Počkejte, dokud se font nenahraje
           function drawText() {
             if (isFontLoaded('AachenStdBold')) {
-              ctx.font = `${fontSize}px AachenStdBold`;
-              ctx.fillStyle = 'yellow';
+              const { x, y, fontSize: adjustedFontSize } = getPositionCoordinates(img, fontSize);
+              ctx.font = `${adjustedFontSize}px AachenStdBold`;
+              ctx.fillStyle = '#FDB813'; // Barva "HRAJTE O"
               ctx.shadowColor = 'black';
               ctx.shadowBlur = 4;
               ctx.shadowOffsetX = 2;
               ctx.shadowOffsetY = 2;
 
-              const { x, y } = getPositionCoordinates(img, fontSize);
               ctx.fillText('HRAJTE O', x, y);
-              ctx.fillText(`${formatNumberWithSpaces(jackpot)} Kč`, x, y + fontSize + 10);
+
+              ctx.fillStyle = 'white'; // Barva částky s Kč
+              ctx.fillText(`${formatNumberWithSpaces(jackpot)} Kč`, x, y + adjustedFontSize + 10);
             } else {
-              setTimeout(drawText, 100); // Zkus znovu za 100ms
+              setTimeout(drawText, 100);
             }
           }
           drawText();
